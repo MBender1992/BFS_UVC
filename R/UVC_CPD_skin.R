@@ -21,13 +21,14 @@ custom_dunnett <- function(data, type, location, stat.var){
   stat
 }
 
+file.name <- "UVC_Auswertung_Marc_young skin_V1.csv"
 
 analyze_UVC <- function(file.name){
   input_file <- paste0("Data/", file.name)
   suffix <- stringr::str_remove(file.name, "UVC_Auswertung_Marc_")
   suffix <- stringr::str_remove(suffix, ".csv")
   ## load data 
-  dat_raw <- read.csv(input_file) %>%
+  dat_raw <- read.csv2(input_file) %>%
     mutate(Group = paste(Dose, Type, sep = " ")) %>%
     mutate(Group = factor(Group, levels = c("control control", 
                                             "30 J/m\xb2 222nm", "300 J/m\xb2 222nm", "1000 J/m\xb2 222nm", "2000 J/m\xb2 222nm",
@@ -38,7 +39,10 @@ analyze_UVC <- function(file.name){
     mutate(Dose = factor(Dose, levels = c("control", "30 J/m\xb2", "300 J/m\xb2", "1000 J/m\xb2", "2000 J/m\xb2"),
                          labels = c("Control", "30 J/m²", "300 J/m²", "1000 J/m²", "2000 J/m²"))) %>%
     mutate(Type = factor(Type, levels = c("control", "222nm", "254nm"), labels = c("Control", "222nm", "254nm"))) %>%
-    mutate(Location = factor(Location, levels = c("basal", "suprabasal"), labels = c("Basal", "Suprabasal")))
+    mutate(Location = factor(Location, levels = c("basal", "suprabasal"), labels = c("Basal", "Suprabasal"))) %>%
+    mutate(mean_pos = parse_number(mean_pos),
+           StratCornThick = parse_number(StratCornThick),
+           minEpidermTick = parse_number(minEpidermTick))
   
   #####################################################
   ##      1. Percentage of CPD positive cells        ##
@@ -113,7 +117,7 @@ analyze_UVC <- function(file.name){
   ########################################################
   
   dat_corr <- dat_raw %>% filter(Location == "Suprabasal")
-  
+ 
   svg(paste0("Results/UVC_correlation_fluorescence_epiThick_",suffix, ".svg"),  width=7, height=5)
   p <- ggscatter(data = dat_corr, x = "minEpidermTick", y = "mean_pos", facet.by = "Group", scales = "free", shape = 17, color = "#4DBBD5E5") +
     geom_smooth(method = "lm", se = F, lty = 1, color = "grey50", size = 0.5) +
