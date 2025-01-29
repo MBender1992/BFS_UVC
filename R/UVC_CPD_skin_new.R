@@ -9,8 +9,8 @@ library(ggsci)
 library(openxlsx)
 
 ## load data
-young_skin <- read.csv("Data/UVC_Auswertung_Marc_young skin_V1.csv") %>% mutate(Origin = "Young_skin")
-old_skin <- read.csv("Data/UVC_Auswertung_Marc_old skin_V2.csv") %>% mutate(Origin = "Old_skin")
+young_skin <- read.csv2("Data/UVC_Auswertung_Marc_young skin_checked.csv") %>% mutate(Origin = "Young_skin")
+old_skin <- read.csv2("Data/UVC_Auswertung_Marc_old skin_checked.csv") %>% mutate(Origin = "Old_skin")
 
 ## combine data from young and old skin and wrangle data
 dat_combined <- rbind(young_skin, old_skin) 
@@ -73,7 +73,7 @@ print(p_qq)
 dev.off()
 
 ## calculate pvalues for Dose effect
-pvals_dose <- dat_perc %>% filter(!(Type == "222nm" & Location == "Basal")) %>% 
+pvals_dose <- dat_perc %>% #filter(!(Type == "222nm" & Location == "Basal")) %>% 
   group_by(Location, Origin, Type) %>% 
   wilcox_test(Count_perc~Dose, p.adjust.method = "none") %>% 
   filter(group1 == "0 J/m²") %>%
@@ -86,7 +86,7 @@ pvals_type <- dat_perc %>%
   mutate(effect = "Type") 
 
 ## calcuate pvalues for Origin effect
-pvals_origin <- dat_perc %>% filter(!(Type == "222nm" & Location == "Basal")) %>% 
+pvals_origin <- dat_perc %>% #filter(!(Type == "222nm" & Location == "Basal")) %>% 
   group_by(Dose, Location, Type) %>% 
   wilcox_test(Count_perc~Origin, p.adjust.method = "none") %>% 
   mutate(effect = "Origin") 
@@ -135,7 +135,7 @@ write.xlsx(pvals_location, "Results/04_UVC_CPD_percentage_pvals_location.xlsx")
 ##      2. Plotting          ##
 ###############################
 
-plot_cpd_percentage0 <- function(type, upper_limit = 100){
+plot_cpd_percentage1 <- function(type, lower_limit = -7, upper_limit = 100){
   svg(paste0("Results/UVC_CPD_percentage_",type, "_dose.svg"),  width=6, height=5)
   p <- dat_perc %>% 
     filter(Type == type) %>% 
@@ -150,7 +150,7 @@ plot_cpd_percentage0 <- function(type, upper_limit = 100){
     geom_line(lty = 3) +
     facet_wrap(Origin~Location, scales = "free") + 
     scale_x_continuous(guide = "prism_offset") +
-    scale_y_continuous(guide = "prism_offset_minor", limits = c(-7, upper_limit)) + 
+    scale_y_continuous(guide = "prism_offset_minor", limits = c(lower_limit, upper_limit)) + 
     theme_prism(base_size = 12) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
     xlab(paste0("UVC ", type, "Dosis (J/m²)")) +
@@ -159,17 +159,18 @@ plot_cpd_percentage0 <- function(type, upper_limit = 100){
   dev.off()
 }
 
-plot_cpd_percentage0("222nm", upper_limit = 25)
-plot_cpd_percentage0("254nm")
+plot_cpd_percentage1("222nm", lower_limit = -15, upper_limit = 30)
+plot_cpd_percentage1("254nm", lower_limit = -20)
+
 
 ## function to plot and save data filtered by skin origin, faceted by basal/suprabasal and grouped by irradiation type
-plot_cpd_percentage <- function(origin){
+plot_cpd_percentage2 <- function(origin){
   svg(paste0("Results/UVC_CPD_percentage_",origin, ".svg"),  width=8, height=4)
   p <- dat_perc %>% filter(Origin == origin) %>%
     ggboxplot(x = "Dose", y = "Count_perc", fill = "Type", outlier.shape = NA) +
     geom_point(aes(shape = Type), position = position_jitterdodge()) +
     facet_wrap(~Location) +
-    scale_fill_manual(values = pal_npg(alpha = 0.9)(2)) +
+    scale_fill_manual(values = rev(pal_npg(alpha = 0.9)(2))) +
     scale_x_discrete(guide = "prism_offset") +
     scale_y_continuous(guide = "prism_offset_minor", limits = c(0, 100)) + # Hier wird die y-Achse auf 0–100 % begrenzt
     theme_prism(base_size = 12) +
@@ -181,11 +182,11 @@ plot_cpd_percentage <- function(origin){
 }
 
 ## plot and save data for young and old skin
-plot_cpd_percentage("Young_skin")
-plot_cpd_percentage("Old_skin")
+plot_cpd_percentage2("Young_skin")
+plot_cpd_percentage2("Old_skin")
 
 ## function to plot and save data filtered by location, faceted by type of irradiation and grouped by location
-plot_cpd_percentage2 <- function(location){
+plot_cpd_percentage3 <- function(location){
   svg(paste0("Results/UVC_CPD_percentage_",location, ".svg"),  width=8, height=4)
   p <- dat_perc %>% filter(Location == location) %>%
     ggboxplot(x = "Dose", y = "Count_perc", fill = "Origin", outlier.shape = NA) +
@@ -203,12 +204,12 @@ plot_cpd_percentage2 <- function(location){
 }
 
 ## plot and save data for basal and suprabasal data
-plot_cpd_percentage2("Basal")
-plot_cpd_percentage2("Suprabasal")
+plot_cpd_percentage3("Basal")
+plot_cpd_percentage3("Suprabasal")
 
 
 ## function to plot and save data filtered 
-plot_cpd_percentage3 <- function(type){
+plot_cpd_percentage4 <- function(type){
   svg(paste0("Results/UVC_CPD_percentage_",type, "_location.svg"),  width=8, height=4)
   p <- dat_perc %>% filter(Type == type) %>%
     ggboxplot(x = "Dose", y = "Count_perc", fill = "Location", outlier.shape = NA) +
@@ -226,6 +227,71 @@ plot_cpd_percentage3 <- function(type){
 }
 
 ## plot and save data for basal and suprabasal data
-plot_cpd_percentage3("222nm")
-plot_cpd_percentage3("254nm")
+plot_cpd_percentage4("222nm")
+plot_cpd_percentage4("254nm")
 
+##*********************************************************************************************************
+## Influence of number of counted nuclei on percentage of CPD positive cells
+
+## load data
+cell_numbers <- read.csv2("Data/Zellzahlen_Haut.csv")
+
+## calculate percentage
+cell_numbers$perc <- (cell_numbers$n_pos/cell_numbers$n_cells) * 100
+cell_numbers <- cell_numbers %>% 
+  mutate(Dose = factor(Dose, levels = c(0, 30, 300, 1000, 2000), labels = c("0 J/m²", "30 J/m²", "300 J/m²", "1000 J/m²", "2000 J/m²"))) %>%
+  mutate(Origin = factor(Origin, levels = c("jung", "alt"), labels = c("Junge Haut", "Alte Haut")))
+
+## function to plot correlation between number of counted nuclei and percentage of CPD positive Cells
+## filtered by location (basal/suprabasal) and type of uvc (222nm/254nm)
+save_corr_plot <- function(data, loc.filter, uvc.filter, return.plot = FALSE){
+  p <- data %>% filter(Location == loc.filter & Type == uvc.filter) %>%
+    ggplot(aes(n_cells, perc)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE, color = "#4DBBD5E5") + 
+    facet_wrap(Origin ~ Dose, scales = "free", nrow = 2) +
+    theme_prism(base_size = 12) + 
+    theme(legend.position = "none") + 
+    xlab("Anzahl gezählter Zellkerne") +
+    ylab("CPD positive Zellkerne (%)") + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+    stat_cor(color = "#4DBBD5E5", geom = "label")
+  svg(paste0("Results/cell_number_correlation_",loc.filter, "_", uvc.filter, ".svg"),  width=11, height=5)
+  print(p)
+  dev.off()
+  if(return.plot == TRUE){
+    return(p)
+  }
+}
+
+
+## plot results for basal cells 222nm
+save_corr_plot(data = cell_numbers, loc.filter = "basal", uvc.filter = "222nm")
+
+## plot results for basal cells 254nm
+save_corr_plot(data = cell_numbers, loc.filter = "basal", uvc.filter = "254nm")
+
+## plot results for suprabasal cells 222nm
+save_corr_plot(data = cell_numbers, loc.filter = "suprabasal", uvc.filter = "222nm")
+
+## plot results for suprabasal cells 254nm
+save_corr_plot(data = cell_numbers, loc.filter = "suprabasal", uvc.filter = "254nm")
+
+##*********************************************************************************************************
+## Correlation of cell number in basal layer and suprabasal layer
+
+## 
+svg(paste0("Results/cell_number_correlation_basal_suprabasal.svg"),  width=11, height=5)
+cell_numbers %>% select(-c(n_pos, perc)) %>%
+  spread(Location, n_cells) %>%
+  ggplot(aes(basal, suprabasal)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "#4DBBD5E5") + 
+  facet_wrap( ~ Origin, scales = "free", nrow = 1) +
+  theme_prism(base_size = 12) + 
+  theme(legend.position = "none") + 
+  xlab("Anzahl gezählter Zellkerne (basal)") +
+  ylab("Anzahl gezählter Zellkerne (suprabasal)") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+  stat_cor(color = "#4DBBD5E5", geom = "label")
+dev.off()
